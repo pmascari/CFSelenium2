@@ -1,6 +1,7 @@
 <cfcomponent modifier="final" output="false" hint="Manages the lifecycle of browser webdrivers">
 
     <!--- PRIVATE --->
+    
     <cfset variables.OS = createObject("java", "java.lang.System").getProperty("os.name").toLowerCase() />
     <cfset variables.IS_WINDOWS = (find("win", variables.OS) GT 0) />
     <cfset variables.IS_MAC = (find("mac", variables.OS) GT 0) />
@@ -15,14 +16,14 @@
     } />
 
     <cfset variables.DriverServices = {
-        CHROME: null,
-        EDGE: null,
-        FIREFOX: null,
-        IE11: null
+        CHROME: "CHROME",
+        EDGE: "EDGE",
+        FIREFOX: "FIREFOX",
+        IE11: "IE11"
     } />
 
-    <cfset variables.DriverFolder = null />
-    <cfset variables.ObjectFactory = null />
+    <cfset variables.DriverFolder = "" />
+    <cfset variables.ObjectFactory = "" />
     <cfset variables.IsValidBrowser = function(required string name) { return arrayFind(variables.ValidBrowsers, arguments.name) == 0 } />
 
     <cffunction name="init" access="public" returntype="WebdriverManager" hint="Constructor" >
@@ -36,6 +37,7 @@
         variables.DriverFolder = arguments.DriverFolder;
         variables.ObjectFactory = arguments.objectFactory;
 
+        return this;
         </cfscript>
     </cffunction>
 
@@ -43,6 +45,8 @@
         <cfargument name="browser" type="string" required="true" hint="The name of the browser whose webdriver you wish to start" />
         <cfargument name="killExisting" type="boolean" required="false" default="false" hint="If passed as true it will shut down any already running webdrivers. If passed as false (which is the default) and the webdriver is already running, an exception will be thrown" />
         <cfargument name="port" type="numeric" required="false" default="0" hint="The port to start the webdriver on. By default, the webdriver will start on a random, free port on the system" />
+
+
         <cfscript>
 
         if (variables.IsValidBrowser(arguments.browser))
@@ -57,28 +61,30 @@
             throw(message="Unable to start #arguments.browser#-driver", detail="You are attempting to run the #arguments.browser#-driver on a non-Windows OS: #variables.OS#");
         }
 
-        var DriverName;
+        var DriverName="";
         if (IS_WINDOWS)
             DriverName = DriverNames[arguments.browser] & ".exe";
         else
             DriverName = DriverNames[arguments.browser];
 
         var Service = DriverServices[arguments.browser];
+        </cfscript>
 
-        if (!arguments.killExisting && !isNull(Service))
+        <cfscript>
+        if (!arguments.killExisting && (len(Service) IS 0))
         {
             Dispose();
             throw(message="Unable start #arguments.browser#-driver", detail="It appears to already be running (and argument 'killExisting' is false)");
         }
 
-        if (arguments.killExisting && !isNull(Service))
+        if (arguments.killExisting && (len(Service) GT 0))
             Stop(browser);
 
-        var DriverExecutable = createObject("java", "java.io.File").init("#variables.DriverFolder#/#DriverName#");
+        var DriverExecutable = createObject("java", "java.io.File").init("#variables.DriverFolder#\#DriverName#");
         if (!DriverExecutable.exists())
             throw(message="Unable start #arguments.browser#-driver", detail="Executable does not exist (#DriverExecutable.getAbsolutePath()#)");
 
-        var ServiceBuilder;
+        var ServiceBuilder="";
         switch(arguments.browser)
         {
             case "CHROME":
@@ -98,6 +104,16 @@
                 throw("Internal error 101");
         };
 
+
+        </cfscript>
+
+       <cfdump var="#arguments#">
+        <!--- <cfdump var="#DriverExecutable#"> --->
+<cfdump var="#ServiceBuilder#">
+        <cfdump var="#variables.DriverFolder#\#DriverName#">
+       <!---   <cfabort> --->
+
+        <cfscript>
         ServiceBuilder.usingDriverExecutable(DriverExecutable);
 
         if (arguments.port > 0)
@@ -125,11 +141,11 @@
         }
 
         var Service = DriverServices[arguments.browser];
-        if (isNull(Service))
+        if (isNull(Service) OR len(Service) IS 0)
             return false;
 
         Service.stop();
-        DriverServices[arguments.browser] = null;
+        DriverServices[arguments.browser] = "";
 
         return true;
         </cfscript>
@@ -146,7 +162,7 @@
         }
 
         var Service = DriverServices[arguments.browser];
-        if (isNull(Service))
+        if (isNull(Service) OR len(Service) IS 0)
             return false;
 
         return Service.isRunning();
